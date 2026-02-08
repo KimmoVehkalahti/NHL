@@ -3,9 +3,6 @@ title: "Standings of the NHL regular season 2025–2026 using R"
 author: "Kimmo Vehkalahti, Senior University Lecturer, PhD"
 date: "December 2025 --- January 2026"
 output:
-  html_document:
-    theme: united
-    highlight: zenburn
   pdf_document:
     fig_crop: false
     highlight: arrow
@@ -14,6 +11,9 @@ output:
     number_sections: true
     extra_dependencies: ["booktabs", "longtable"]
     keep_tex: true
+  html_document:
+    theme: united
+    highlight: zenburn
 geometry: left=1cm,right=1cm,top=2cm,bottom=3cm
 header-includes:
   - \usepackage[utf8]{inputenc}
@@ -33,7 +33,7 @@ The project had two goals: (1) to follow the NHL freely from a social data scien
 
 R Core Team (2026). _R: A Language and Environment for Statistical Computing_. R Foundation for Statistical Computing, Vienna, Austria. <https://www.R-project.org/>.
   
-Saijo, Rento (2026). nhlscraper: Scraper for National Hockey League Data. R package version 0.4.1.9000, <https://rentosaijo.github.io/nhlscraper/>.
+Saijo, Rento (2026). nhlscraper: Scraper for National Hockey League Data. R package version 0.4.2.9000, <https://rentosaijo.github.io/nhlscraper/>.
 
 *CurreChat* is a generative AI tool for students and staff at the University of Helsinki. It runs OpenAI's large language models hosted in the University's Microsoft Azure EU cloud. Data entered into the service is not used to further train the models, and no identifying user information is sent to the model.
 
@@ -448,9 +448,9 @@ games <- all_games %>%
   filter(gameStateId == 7)  # only those games that have been played already
 
 TeamIds <- games %>% 
-  group_by(homeTeamId) %>% summarise() %>% rename(id = homeTeamId)
+  group_by(homeTeamId) %>% summarise() %>% rename(teamId = homeTeamId)
 
-teams <- all_teams %>% filter(id %in% TeamIds$id)
+teams <- all_teams %>% filter(id %in% TeamIds$teamId) %>% rename(teamId = id)
 
 lookup <- tibble( 
   triCode = c(
@@ -471,14 +471,14 @@ teams <- teams %>%
   select(-franchiseId, -leagueId, -rawTricode)
 
 games_enriched <- games %>%
-  left_join(teams, by = c("homeTeamId" = "id")) %>%
+  left_join(teams, by = c("homeTeamId" = "teamId")) %>%
   rename(
     triCode_home      = triCode,
     fullName_home     = fullName,
     Division_home     = Division,
     Conference_home   = Conference
   ) %>%
-  left_join(teams, by = c("visitingTeamId" = "id")) %>%
+  left_join(teams, by = c("visitingTeamId" = "teamId")) %>%
   rename(
     triCode_away      = triCode,
     fullName_away     = fullName,
@@ -498,7 +498,7 @@ games_enriched <- games %>%
 
 # Select only those columns that will be needed
 games_played <- games_enriched %>%
-  select(id,            # NHL game id (might be needed later)
+  select(gameId,
          gameDate,      # "YYYY-MM-DD" (needed for plotting)
          homeTeamId,
          homeTeamCode,
@@ -542,7 +542,7 @@ games_played <- games_played %>%
 
 home_long <- games_played %>%
   transmute(
-    id, gameDate,
+    gameId, gameDate,
     TeamId        = homeTeamId,
     Code          = homeTeamCode,
     TeamName      = homeTeamName,
@@ -564,7 +564,7 @@ home_long <- games_played %>%
   )
 away_long <- games_played %>%
   transmute(
-    id, gameDate,
+    gameId, gameDate,
     TeamId        = visitingTeamId,
     Code          = visitingTeamCode,
     TeamName      = visitingTeamName,
@@ -876,7 +876,7 @@ if (knitr::is_latex_output()) cat("\\clearpage\n")
 ```{r graph, fig.width=12, fig.height=8, dpi=150}
 # Cumulative points dataset
 team_points_cum <- games_long %>%
-  arrange(Code, gameDate, id) %>%
+  arrange(Code, gameDate, gameId) %>%
   group_by(Code, Division, Conference) %>%
   mutate(CumPoints = cumsum(Points)) %>%
   ungroup()
