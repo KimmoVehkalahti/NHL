@@ -1,8 +1,11 @@
 ---
 title: "Standings of the NHL regular season 2025–2026 using R"
 author: "Kimmo Vehkalahti, Senior University Lecturer, PhD"
-date: "December 2025 --- January 2026"
+date: "December 2025 --- March 2026"
 output:
+  html_document:
+    theme: united
+    highlight: zenburn
   pdf_document:
     fig_crop: false
     highlight: arrow
@@ -11,9 +14,6 @@ output:
     number_sections: true
     extra_dependencies: ["booktabs", "longtable"]
     keep_tex: true
-  html_document:
-    theme: united
-    highlight: zenburn
 geometry: left=1cm,right=1cm,top=2cm,bottom=3cm
 header-includes:
   - \usepackage[utf8]{inputenc}
@@ -43,6 +43,7 @@ knitr::opts_chunk$set(list(echo = TRUE, warning = FALSE, message = FALSE))
 conflicted::conflict_prefer("recode", "dplyr")
 conflicted::conflict_prefer("select", "dplyr")
 conflicted::conflict_prefer("filter", "dplyr")
+conflicted::conflict_prefer("mutate", "dplyr")
 
 ```
 
@@ -721,6 +722,8 @@ status_all <- best_flags %>%
 
 # Render various tables of standings
 
+NOTE: The R code has been omitted in this section to ensure maximum clarity of the tables. The codes will be presented later in section 10.
+
 ```{r tables, echo=FALSE, results='asis', eval=TRUE}
 
 # League table
@@ -888,58 +891,42 @@ x_max <- max(team_points_cum$gameDate)
 y_min <- 0
 y_max <- max(team_points_cum$CumPoints)
 global_y_scale <- scale_y_continuous(
-  limits = c(y_min, y_max), 
-  expand = expansion(mult = c(0.02, 0.05))
+  limits = c(y_min, y_max),
+  breaks = scales::breaks_width(20),
+  expand = expansion(mult = c(0.02, 0.08))
   )
 global_x_scale <- scale_x_date(
   limits = c(x_min, x_max),
   breaks = scales::breaks_width("1 month"),
   labels = scales::label_date(format = "%b %Y", locale = "en"),
-  expand = expansion(mult = c(0.01, 0.05))
+  #expand = expansion(mult = c(0.01, 0.05))
 )
-# pick an 8-color palette, e.g., "Signac", "Hiroshige", "Kandinsky"
-div_palette <- MetBrewer::met.brewer(name = "Hiroshige", n = 8, type = "discrete")
 
 make_division_plot_with_wildcard_label <- function(df_div, division_name, x_scale, y_scale, colors = NULL) {
-  # Teams that appear in this division’s plotting data (factor or character)
   teams_in_plot <- levels(df_div$Code)
-  if (is.null(teams_in_plot)) {
-    teams_in_plot <- unique(df_div$Code)
-  }
-  # Build labels: append "*" to wild-card teams
   labels_vec <- setNames(teams_in_plot, teams_in_plot)
   labels_vec[labels_vec %in% wildcard_codes] <- paste0(labels_vec[labels_vec %in% wildcard_codes], " *")
 
-  p <- ggplot(df_div, aes(x = gameDate, y = CumPoints, color = Code, group = Code)) +
+  ggplot(df_div, aes(x = gameDate, y = CumPoints, color = Code, group = Code)) +
     geom_line(linewidth = 0.5, alpha = 0.5) +
-    geom_point(aes(fill = side), shape = 21, size = 1.5, stroke = 0.5) +
-    scale_color_manual(values = div_palette) +  # apply MetBrewer palette
+    geom_point(aes(fill = side), shape = 21, size = 1.5) +
+    scale_color_discrete(labels = labels_vec) +
     scale_fill_manual(values = c(home = "white", away = "black"), name = "Side", drop = FALSE) +
     labs(title = paste0(division_name, " Division"), x = NULL, y = "Cumulative points", color = "Team") +
     guides(color = guide_legend(order = 1), fill = guide_legend(order = 2)) +
     x_scale + y_scale + 
-    theme_minimal() + theme(legend.position = "right")
-  # Apply colors and custom labels
-  if (!is.null(colors)) {
-    # If you have a global named color vector, subset to the teams present
-    colors_sub <- colors[teams_in_plot]
-    p <- p + scale_color_manual(values = colors_sub, labels = labels_vec)
-  } else {
-    # Keep default colors but override labels
-    p <- p + scale_color_discrete(labels = labels_vec)
-  }
-  p
+    theme_minimal() + theme(legend.position = "right") + 
+    theme(palette.colour.discrete = c("orange", "blue", "red", "cyan",
+                                      "grey50", "grey80", "grey80", "grey80"))
 }
 
 div_order_names <- c("Atlantic", "Metropolitan", "Central", "Pacific")
 plots_list <- lapply(div_order_names, function(d) {
-  df_div_points <- dplyr::filter(team_points_cum, Division == d)
+  df_div_points <- filter(team_points_cum, Division == d)
   # Align to standings order for legend consistency
-  if (!is.null(division_tables[[d]])) {
-    div_levels <- division_tables[[d]]$Code
-    df_div_points <- df_div_points %>% dplyr::mutate(Code = factor(Code, levels = div_levels))
-  }
-  make_division_plot_with_wildcard_label(df_div_points, d, global_x_scale, global_y_scale) # [colors]
+  div_levels <- division_tables[[d]]$Code
+  df_div_points <- df_div_points %>% mutate(Code = factor(Code, levels = div_levels))
+  make_division_plot_with_wildcard_label(df_div_points, d, global_x_scale, global_y_scale)
 })
 names(plots_list) <- div_order_names
 
@@ -998,6 +985,8 @@ ggsave(
 )
 ```
 # Display the code for rendering the tables of standings
+
+NOTE: The tables produced by these codes are presented in section 8.
 
 ```{r tables-codes, echo=TRUE, eval=FALSE, ref.label='tables'}
 ```
